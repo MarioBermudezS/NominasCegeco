@@ -19,7 +19,7 @@ empresas_disponibles = df['Empresa'].unique().tolist()
 anos_disponibles = sorted(df['AÑO'].unique().tolist())
 meses_disponibles = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-# --- GESTIÓN DE ESTADO (SESSION STATE) PARA FILTROS PERSISTENTES ---
+# --- GESTIÓN DE ESTADO (SESSION STATE) ---
 if 'sel_empresas' not in st.session_state:
     st.session_state.sel_empresas = empresas_disponibles
 if 'sel_anos' not in st.session_state:
@@ -32,16 +32,16 @@ sel_empresas = st.sidebar.multiselect("Seleccionar Empresa(s)", empresas_disponi
 sel_anos = st.sidebar.multiselect("Seleccionar Año(s)", anos_disponibles, default=st.session_state.sel_anos, key='widget_anos')
 sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, default=st.session_state.sel_meses, key='widget_meses')
 
-# Actualizamos el estado con los cambios del usuario
 st.session_state.sel_empresas = sel_empresas
 st.session_state.sel_anos = sel_anos
 st.session_state.sel_meses = sel_meses
 
 df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)) & (df['MES'].isin(sel_meses))]
 
-# --- CÁLCULO DE MÉTRICAS SUPERIORES CON COMPARATIVA ANUAL ---
-anos_seleccionados = sorted(sel_anos)
+# --- ORDEN INVERTIDO: PRIMERO EL AÑO MÁS RECIENTE (ej. 2026) Y LUEGO EL ANTERIOR (ej. 2025) ---
+anos_seleccionados = sorted(sel_anos, reverse=True)
 
+# --- CÁLCULO DE MÉTRICAS SUPERIORES CON COMPARATIVA ANUAL ---
 def calcular_metricas(sub_df):
     reg = len(sub_df)
     dev = sub_df['TOTAL DEVENGO'].sum()
@@ -58,8 +58,9 @@ delta_c_medio, delta_r_social, delta_d_medio = None, None, None
 etiqueta_comparativa = ""
 
 if len(anos_seleccionados) >= 2:
-    ano_actual = anos_seleccionados[-1]
-    ano_previo = anos_seleccionados[-2]
+    # Como está invertido, el actual es el primero [0] y el previo el segundo [1]
+    ano_actual = anos_seleccionados[0]
+    ano_previo = anos_seleccionados[1]
     etiqueta_comparativa = f"vs {ano_previo}"
     
     df_actual = df_filtered[df_filtered['AÑO'] == ano_actual]
@@ -79,7 +80,7 @@ col3.metric("Devengo Medio", f"{d_medio_tot:,.2f} €", delta=delta_d_medio, del
 
 
 # =========================================================================
-# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Con Fila de Totales y Orden Estricto)
+# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (2026 antes que 2025)
 # =========================================================================
 st.subheader("🏢 Comparativa de Costes por Empresa y Año (con Totales y Variaciones)")
 
@@ -98,7 +99,6 @@ for i, ano in enumerate(anos_seleccionados):
     col_ss = f'Seg. Social {ano}'
     col_emp = f'Total Empresa {ano}'
     
-    # Forzamos estrictamente el orden: Devengos -> Seguridad Social -> Total Empresa
     df_empresa_final[col_dev] = pivot_empresa_ano[('TOTAL DEVENGO', ano)]
     df_empresa_final[col_ss] = pivot_empresa_ano[('TOTAL SEGURIDAD SOCIAL', ano)]
     df_empresa_final[col_emp] = pivot_empresa_ano[('TOTAL EMPRESA', ano)]
@@ -159,7 +159,7 @@ st.dataframe(
 
 
 # =========================================================================
-# 2. EVOLUCIÓN MENSUAL DEL COSTE TOTAL EMPRESA (Con Fila de Totales)
+# 2. EVOLUCIÓN MENSUAL DEL COSTE TOTAL EMPRESA (2026 antes que 2025)
 # =========================================================================
 st.subheader("📅 Evolución Mensual del Coste Total Empresa (con Totales y Variaciones)")
 
