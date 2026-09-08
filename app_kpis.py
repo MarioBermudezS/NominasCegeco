@@ -79,7 +79,7 @@ col3.metric("Devengo Medio", f"{d_medio_tot:,.2f} €", delta=delta_d_medio, del
 
 
 # =========================================================================
-# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Referencia fija año inicial/más reciente)
+# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO
 # =========================================================================
 st.subheader("🏢 Comparativa de Costes por Empresa y Año (con Totales y Variaciones)")
 
@@ -112,9 +112,9 @@ for i, ano in enumerate(anos_seleccionados):
         col_diff_abs = f'Dif. Abs. (€) {ano_base} vs {ano}'
         col_diff_pct = f'Dif. % {ano_base} vs {ano}'
         
-        # Resta corregida: Año Base (ej. 2026) menos Año Anterior (ej. 2025 o 2024)
+        # Corrección aplicada aquí (usando col_emp en lugar de col)
         df_empresa_final[col_diff_abs] = df_empresa_final[f'Total Empresa {ano_base}'] - df_empresa_final[col_emp]
-        df_empresa_final[col_diff_pct] = ((df_empresa_final[f'Total Empresa {ano_base}'] - df_empresa_final[col_emp]) / df_empresa_final[col].replace(0, 1)) * 100
+        df_empresa_final[col_diff_pct] = ((df_empresa_final[f'Total Empresa {ano_base}'] - df_empresa_final[col_emp]) / df_empresa_final[col_emp].replace(0, 1)) * 100
         
         formatos_empresa[col_diff_abs] = "{:+,.2f} €"
         formatos_empresa[col_diff_pct] = "{:+.2f}%"
@@ -160,7 +160,7 @@ st.dataframe(
 
 
 # =========================================================================
-# 2. EVOLUCIÓN MENSUAL DEL COSTE TOTAL EMPRESA (Referencia fija año inicial/más reciente)
+# 2. EVOLUCIÓN MENSUAL DEL COSTE TOTAL EMPRESA
 # =========================================================================
 st.subheader("📅 Evolución Mensual del Coste Total Empresa (con Totales y Variaciones)")
 
@@ -183,7 +183,6 @@ for i, ano in enumerate(anos_seleccionados):
         col_diff_abs = f'Dif. Abs. (€) {ano_base} vs {ano}'
         col_diff_pct = f'Dif. % {ano_base} vs {ano}'
         
-        # Resta corregida para la evolución mensual
         df_mes_final[col_diff_abs] = df_mes_final[f'Coste {ano_base}'] - df_mes_final[col_coste]
         df_mes_final[col_diff_pct] = ((df_mes_final[f'Coste {ano_base}'] - df_mes_final[col_coste]) / df_mes_final[col_coste].replace(0, 1)) * 100
         
