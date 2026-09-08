@@ -39,10 +39,8 @@ def calcular_metricas(sub_df):
     d_medio = (dev / reg) if reg > 0 else 0
     return c_medio, r_social, d_medio
 
-# Métricas del total filtrado actual
 c_medio_tot, r_social_tot, d_medio_tot = calcular_metricas(df_filtered)
 
-# Si hay al menos dos años seleccionados, calculamos el último vs el anterior para la comparativa delta
 delta_c_medio, delta_r_social, delta_d_medio = None, None, None
 etiqueta_comparativa = ""
 
@@ -62,9 +60,9 @@ if len(anos_seleccionados) >= 2:
     delta_d_medio = f"{(d_act - d_prev):+,.2f} € ({etiqueta_comparativa})"
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Coste Medio / Nómina", f"{c_medio_tot:,.2f} €", delta=delta_c_medio)
-col2.metric("Ratio Carga Social", f"{r_social_tot:,.2f}%", delta=delta_r_social)
-col3.metric("Devengo Medio", f"{d_medio_tot:,.2f} €", delta=delta_d_medio)
+col1.metric("Coste Medio / Nómina", f"{c_medio_tot:,.2f} €", delta=delta_c_medio, delta_color="inverse")
+col2.metric("Ratio Carga Social", f"{r_social_tot:,.2f}%", delta=delta_r_social, delta_color="inverse")
+col3.metric("Devengo Medio", f"{d_medio_tot:,.2f} €", delta=delta_d_medio, delta_color="inverse")
 
 
 # =========================================================================
@@ -80,21 +78,46 @@ pivot_empresa_ano = df_filtered.pivot_table(
 ).fillna(0)
 
 df_empresa_final = pd.DataFrame(index=pivot_empresa_ano.index)
+formatos_empresa = {}
 
 for i, ano in enumerate(anos_seleccionados):
-    df_empresa_final[(f'Devengos {ano}', '')] = pivot_empresa_ano[('TOTAL DEVENGO', ano)]
-    df_empresa_final[(f'Seg. Social {ano}', '')] = pivot_empresa_ano[('TOTAL SEGURIDAD SOCIAL', ano)]
-    df_empresa_final[(f'Total Empresa {ano}', '')] = pivot_empresa_ano[('TOTAL EMPRESA', ano)]
+    col_dev = f'Devengos {ano}'
+    col_ss = f'Seg. Social {ano}'
+    col_emp = f'Total Empresa {ano}'
+    
+    df_empresa_final[col_dev] = pivot_empresa_ano[('TOTAL DEVENGO', ano)]
+    df_empresa_final[col_ss] = pivot_empresa_ano[('TOTAL SEGURIDAD SOCIAL', ano)]
+    df_empresa_final[col_emp] = pivot_empresa_ano[('TOTAL EMPRESA', ano)]
+    
+    formatos_empresa[col_dev] = "{:,.2f} €"
+    formatos_empresa[col_ss] = "{:,.2f} €"
+    formatos_empresa[col_emp] = "{:,.2f} €"
     
     if i > 0:
         ano_prev = anos_seleccionados[i-1]
         col_diff_abs = f'Dif. Abs. (€) {ano} vs {ano_prev}'
         col_diff_pct = f'Dif. % {ano} vs {ano_prev}'
         
-        df_empresa_final[(col_diff_abs, '')] = df_empresa_final[(f'Total Empresa {ano}', '')] - df_empresa_final[(f'Total Empresa {ano_prev}', '')]
-        df_empresa_final[(col_diff_pct, '')] = ((df_empresa_final[(f'Total Empresa {ano}', '')] - df_empresa_final[(f'Total Empresa {ano_prev}', '')]) / df_empresa_final[(f'Total Empresa {ano_prev}', '')].replace(0, 1)) * 100
+        df_empresa_final[col_diff_abs] = df_empresa_final[col_emp] - df_empresa_final[f'Total Empresa {ano_prev}']
+        df_empresa_final[col_diff_pct] = ((df_empresa_final[col_emp] - df_empresa_final[f'Total Empresa {ano_prev}']) / df_empresa_final[f'Total Empresa {ano_prev}'].replace(0, 1)) * 100
+        
+        formatos_empresa[col_diff_abs] = "{:+,.2f} €"
+        formatos_empresa[col_diff_pct] = "{:+.2f}%"
 
-st.dataframe(df_empresa_final.style.format(lambda v: f"{v:,.2f} €" if isinstance(v, (int, float)) and v > 100 else f"{v:,.2f}"), use_container_width=True)
+def color_diferencias(val):
+    if isinstance(val, (int, float)):
+        if val < 0:
+            return 'color: green;'
+        elif val > 0:
+            return 'color: red;'
+    return ''
+
+cols_colorear_empresa = [c for c in df_empresa_final.columns if 'Dif.' in str(c)]
+st.dataframe(
+    df_empresa_final.style.format(formatos_empresa)
+                      .map(color_diferencias, subset=cols_colorear_empresa), 
+    use_container_width=True
+)
 
 
 # =========================================================================
@@ -110,16 +133,30 @@ pivot_mes_ano = df_filtered.pivot_table(
 ).reindex(meses_disponibles).fillna(0)
 
 df_mes_final = pd.DataFrame(index=meses_disponibles)
+formatos_meses = {}
 
 for i, ano in enumerate(anos_seleccionados):
-    df_mes_final[f'Coste {ano}'] = pivot_mes_ano[ano]
+    col_coste = f'Coste {ano}'
+    df_mes_final[col_coste] = pivot_mes_ano[ano]
+    formatos_meses[col_coste] = "{:,.2f} €"
     
     if i > 0:
         ano_prev = anos_seleccionados[i-1]
-        df_mes_final[f'Dif. Abs. (€) {ano} vs {ano_prev}'] = df_mes_final[f'Coste {ano}'] - df_mes_final[f'Coste {ano_prev}']
-        df_mes_final[f'Dif. % {ano} vs {ano_prev}'] = ((df_mes_final[f'Coste {ano}'] - df_mes_final[f'Coste {ano_prev}']) / df_mes_final[f'Coste {ano_prev}'].replace(0, 1)) * 100
+        col_diff_abs = f'Dif. Abs. (€) {ano} vs {ano_prev}'
+        col_diff_pct = f'Dif. % {ano} vs {ano_prev}'
+        
+        df_mes_final[col_diff_abs] = df_mes_final[col_coste] - df_mes_final[f'Coste {ano_prev}']
+        df_mes_final[col_diff_pct] = ((df_mes_final[col_coste] - df_mes_final[f'Coste {ano_prev}']) / df_mes_final[f'Coste {ano_prev}'].replace(0, 1)) * 100
+        
+        formatos_meses[col_diff_abs] = "{:+,.2f} €"
+        formatos_meses[col_diff_pct] = "{:+.2f}%"
 
-st.dataframe(df_mes_final.style.format("{:,.2f}"), use_container_width=True)
+cols_colorear_mes = [c for c in df_mes_final.columns if 'Dif.' in str(c)]
+st.dataframe(
+    df_mes_final.style.format(formatos_meses)
+                      .map(color_diferencias, subset=cols_colorear_mes), 
+    use_container_width=True
+)
 
 
 # =========================================================================
