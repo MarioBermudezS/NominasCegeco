@@ -93,7 +93,6 @@ pivot_empresa_ano = df_filtered.pivot_table(
 df_empresa_final = pd.DataFrame(index=pivot_empresa_ano.index)
 formatos_empresa = {}
 
-# El año base de referencia para las diferencias es el primero de la lista (el más reciente, ej. 2026)
 ano_base = anos_seleccionados[0] if anos_seleccionados else None
 
 for i, ano in enumerate(anos_seleccionados):
@@ -109,13 +108,13 @@ for i, ano in enumerate(anos_seleccionados):
     formatos_empresa[col_ss] = "{:,.2f} €"
     formatos_empresa[col_emp] = "{:,.2f} €"
     
-    # Si el año analizado es anterior al año base, calculamos su diferencia respecto al año base (ej. 2025 vs 2026)
     if ano != ano_base:
-        col_diff_abs = f'Dif. Abs. (€) {ano} vs {ano_base}'
-        col_diff_pct = f'Dif. % {ano} vs {ano_base}'
+        col_diff_abs = f'Dif. Abs. (€) {ano_base} vs {ano}'
+        col_diff_pct = f'Dif. % {ano_base} vs {ano}'
         
-        df_empresa_final[col_diff_abs] = df_empresa_final[col_emp] - df_empresa_final[f'Total Empresa {ano_base}']
-        df_empresa_final[col_diff_pct] = ((df_empresa_final[col_emp] - df_empresa_final[f'Total Empresa {ano_base}']) / df_empresa_final[f'Total Empresa {ano_base}'].replace(0, 1)) * 100
+        # Resta corregida: Año Base (ej. 2026) menos Año Anterior (ej. 2025 o 2024)
+        df_empresa_final[col_diff_abs] = df_empresa_final[f'Total Empresa {ano_base}'] - df_empresa_final[col_emp]
+        df_empresa_final[col_diff_pct] = ((df_empresa_final[f'Total Empresa {ano_base}'] - df_empresa_final[col_emp]) / df_empresa_final[col].replace(0, 1)) * 100
         
         formatos_empresa[col_diff_abs] = "{:+,.2f} €"
         formatos_empresa[col_diff_pct] = "{:+.2f}%"
@@ -125,20 +124,20 @@ if not df_empresa_final.empty:
     for col in df_empresa_final.columns:
         if 'Dif. %' in col:
             parts = col.split(' ')
-            ano_actual_str = parts[-3]
-            ano_base_str = parts[-1]
-            col_tot_act = f'Total Empresa {ano_actual_str}'
+            ano_base_str = parts[-3]
+            ano_actual_str = parts[-1]
             col_tot_base = f'Total Empresa {ano_base_str}'
-            tot_act = df_empresa_final[col_tot_act].sum()
+            col_tot_act = f'Total Empresa {ano_actual_str}'
             tot_base = df_empresa_final[col_tot_base].sum()
-            fila_totales_empresa[col] = ((tot_act - tot_base) / tot_base * 100) if tot_base != 0 else 0
+            tot_act = df_empresa_final[col_tot_act].sum()
+            fila_totales_empresa[col] = ((tot_base - tot_act) / tot_act * 100) if tot_act != 0 else 0
         elif 'Dif. Abs.' in col:
             parts = col.split(' ')
-            ano_actual_str = parts[-3]
-            ano_base_str = parts[-1]
-            col_tot_act = f'Total Empresa {ano_actual_str}'
+            ano_base_str = parts[-3]
+            ano_actual_str = parts[-1]
             col_tot_base = f'Total Empresa {ano_base_str}'
-            fila_totales_empresa[col] = df_empresa_final[col_tot_act].sum() - df_empresa_final[col_tot_base].sum()
+            col_tot_act = f'Total Empresa {ano_actual_str}'
+            fila_totales_empresa[col] = df_empresa_final[col_tot_base].sum() - df_empresa_final[col_tot_act].sum()
         else:
             fila_totales_empresa[col] = df_empresa_final[col].sum()
             
@@ -181,11 +180,12 @@ for i, ano in enumerate(anos_seleccionados):
     formatos_meses[col_coste] = "{:,.2f} €"
     
     if ano != ano_base:
-        col_diff_abs = f'Dif. Abs. (€) {ano} vs {ano_base}'
-        col_diff_pct = f'Dif. % {ano} vs {ano_base}'
+        col_diff_abs = f'Dif. Abs. (€) {ano_base} vs {ano}'
+        col_diff_pct = f'Dif. % {ano_base} vs {ano}'
         
-        df_mes_final[col_diff_abs] = df_mes_final[col_coste] - df_mes_final[f'Coste {ano_base}']
-        df_mes_final[col_diff_pct] = ((df_mes_final[col_coste] - df_mes_final[f'Coste {ano_base}']) / df_mes_final[f'Coste {ano_base}'].replace(0, 1)) * 100
+        # Resta corregida para la evolución mensual
+        df_mes_final[col_diff_abs] = df_mes_final[f'Coste {ano_base}'] - df_mes_final[col_coste]
+        df_mes_final[col_diff_pct] = ((df_mes_final[f'Coste {ano_base}'] - df_mes_final[col_coste]) / df_mes_final[col_coste].replace(0, 1)) * 100
         
         formatos_meses[col_diff_abs] = "{:+,.2f} €"
         formatos_meses[col_diff_pct] = "{:+.2f}%"
@@ -195,20 +195,20 @@ if not df_mes_final.empty:
     for col in df_mes_final.columns:
         if 'Dif. %' in col:
             parts = col.split(' ')
-            ano_actual_str = parts[-3]
-            ano_base_str = parts[-1]
-            col_tot_act = f'Coste {ano_actual_str}'
+            ano_base_str = parts[-3]
+            ano_actual_str = parts[-1]
             col_tot_base = f'Coste {ano_base_str}'
-            tot_act = df_mes_final[col_tot_act].sum()
+            col_tot_act = f'Coste {ano_actual_str}'
             tot_base = df_mes_final[col_tot_base].sum()
-            fila_totales_mes[col] = ((tot_act - tot_base) / tot_base * 100) if tot_base != 0 else 0
+            tot_act = df_mes_final[col_tot_act].sum()
+            fila_totales_mes[col] = ((tot_base - tot_act) / tot_act * 100) if tot_act != 0 else 0
         elif 'Dif. Abs.' in col:
             parts = col.split(' ')
-            ano_actual_str = parts[-3]
-            ano_base_str = parts[-1]
-            col_tot_act = f'Coste {ano_actual_str}'
+            ano_base_str = parts[-3]
+            ano_actual_str = parts[-1]
             col_tot_base = f'Coste {ano_base_str}'
-            fila_totales_mes[col] = df_mes_final[col_tot_act].sum() - df_mes_final[col_tot_base].sum()
+            col_tot_act = f'Coste {ano_actual_str}'
+            fila_totales_mes[col] = df_mes_final[col_tot_base].sum() - df_mes_final[col_tot_act].sum()
         else:
             fila_totales_mes[col] = df_mes_final[col].sum()
             
