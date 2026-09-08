@@ -26,7 +26,7 @@ sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, def
 
 df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)) & (df['MES'].isin(sel_meses))]
 
-# --- BLOQUE DE MÉTRICAS ORDENADO ---
+# --- MÉTRICAS SUPERIORES (Seguridad Social en 2ª columna) ---
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Registros / Nóminas", f"{len(df_filtered):,}")
 col2.metric("Total Seguridad Social", f"{df_filtered['TOTAL SEGURIDAD SOCIAL'].sum():,.2f} €")
@@ -34,12 +34,23 @@ col3.metric("Total Devengos", f"{df_filtered['TOTAL DEVENGO'].sum():,.2f} €")
 col4.metric("Coste Total Empresa", f"{df_filtered['TOTAL EMPRESA'].sum():,.2f} €")
 
 st.subheader("🏢 Comparativa de Costes por Empresa y Año")
+
+# Tabla pivote con orden forzado de columnas
 pivot_empresa_ano = df_filtered.pivot_table(
     index='Empresa', 
     columns='AÑO', 
     values=['TOTAL DEVENGO', 'TOTAL SEGURIDAD SOCIAL', 'TOTAL EMPRESA'], 
     aggfunc='sum'
 ).fillna(0)
+
+anos_actuales = sorted(df_filtered['AÑO'].unique().tolist())
+columnas_ordenadas = []
+for ano in anos_actuales:
+    columnas_ordenadas.append(('TOTAL DEVENGO', ano))
+    columnas_ordenadas.append(('TOTAL SEGURIDAD SOCIAL', ano))
+    columnas_ordenadas.append(('TOTAL EMPRESA', ano))
+
+pivot_empresa_ano = pivot_empresa_ano.reindex(columns=columnas_ordenadas, fill_value=0)
 st.dataframe(pivot_empresa_ano.style.format("{:,.2f} €"), use_container_width=True)
 
 st.subheader("📅 Evolución Mensual del Coste Total Empresa")
