@@ -19,42 +19,23 @@ empresas_disponibles = df['Empresa'].unique().tolist()
 anos_disponibles = sorted(df['AÑO'].unique().tolist())
 meses_disponibles = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-# --- RECUPERAR FILTROS DESDE LA URL (O VALORES POR DEFECTO) ---
-params = st.query_params
-
-# Empresas
-default_empresas = params.get_all("empresa") if hasattr(params, "get_all") else params.get("empresa", empresas_disponibles)
-if isinstance(default_empresas, str):
-    default_empresas = [default_empresas]
-if not default_empresas:
-    default_empresas = empresas_disponibles
-
-# Años
-default_anos_param = params.get_all("ano") if hasattr(params, "get_all") else params.get("ano", [])
-if isinstance(default_anos_param, str):
-    default_anos_param = [default_anos_param]
-if default_anos_param:
-    default_anos = [int(a) for a in default_anos_param if int(a) in anos_disponibles]
-else:
-    default_anos = anos_disponibles[-2:] if len(anos_disponibles)>=2 else anos_disponibles
-
-# Meses
-default_meses = params.get_all("mes") if hasattr(params, "get_all") else params.get("mes", meses_disponibles)
-if isinstance(default_meses, str):
-    default_meses = [default_meses]
-if not default_meses:
-    default_meses = meses_disponibles
+# --- GESTIÓN DE ESTADO (SESSION STATE) PARA FILTROS PERSISTENTES ---
+if 'sel_empresas' not in st.session_state:
+    st.session_state.sel_empresas = empresas_disponibles
+if 'sel_anos' not in st.session_state:
+    st.session_state.sel_anos = anos_disponibles[-2:] if len(anos_disponibles)>=2 else anos_disponibles
+if 'sel_meses' not in st.session_state:
+    st.session_state.sel_meses = meses_disponibles
 
 st.sidebar.header("Filtros de Análisis")
-sel_empresas = st.sidebar.multiselect("Seleccionar Empresa(s)", empresas_disponibles, default=default_empresas)
-sel_anos = st.sidebar.multiselect("Seleccionar Año(s)", anos_disponibles, default=default_anos)
-sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, default=default_meses)
+sel_empresas = st.sidebar.multiselect("Seleccionar Empresa(s)", empresas_disponibles, default=st.session_state.sel_empresas, key='widget_empresas')
+sel_anos = st.sidebar.multiselect("Seleccionar Año(s)", anos_disponibles, default=st.session_state.sel_anos, key='widget_anos')
+sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, default=st.session_state.sel_meses, key='widget_meses')
 
-# --- GUARDAR FILTROS ACTUALES EN LA URL (Sintaxis moderna de Streamlit) ---
-st.query_params["empresa"] = sel_empresas
-st.query_params["ano"] = [str(a) for a in sel_anos]
-st.query_params["mes"] = sel_meses
-
+# Actualizamos el estado con los cambios del usuario
+st.session_state.sel_empresas = sel_empresas
+st.session_state.sel_anos = sel_anos
+st.session_state.sel_meses = sel_meses
 
 df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)) & (df['MES'].isin(sel_meses))]
 
@@ -98,7 +79,7 @@ col3.metric("Devengo Medio", f"{d_medio_tot:,.2f} €", delta=delta_d_medio, del
 
 
 # =========================================================================
-# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Con Fila de Totales)
+# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Con Fila de Totales y Orden Estricto)
 # =========================================================================
 st.subheader("🏢 Comparativa de Costes por Empresa y Año (con Totales y Variaciones)")
 
@@ -117,6 +98,7 @@ for i, ano in enumerate(anos_seleccionados):
     col_ss = f'Seg. Social {ano}'
     col_emp = f'Total Empresa {ano}'
     
+    # Forzamos estrictamente el orden: Devengos -> Seguridad Social -> Total Empresa
     df_empresa_final[col_dev] = pivot_empresa_ano[('TOTAL DEVENGO', ano)]
     df_empresa_final[col_ss] = pivot_empresa_ano[('TOTAL SEGURIDAD SOCIAL', ano)]
     df_empresa_final[col_emp] = pivot_empresa_ano[('TOTAL EMPRESA', ano)]
@@ -140,16 +122,18 @@ if not df_empresa_final.empty:
     fila_totales_empresa = pd.DataFrame(index=['TOTAL GRUPO'])
     for col in df_empresa_final.columns:
         if 'Dif. %' in col:
-            ano_actual_str = col.split(' ')[-3]
-            ano_prev_str = col.split(' ')[-1]
+            parts = col.split(' ')
+            ano_actual_str = parts[-3]
+            ano_prev_str = parts[-1]
             col_tot_act = f'Total Empresa {ano_actual_str}'
             col_tot_prev = f'Total Empresa {ano_prev_str}'
             tot_act = df_empresa_final[col_tot_act].sum()
             tot_prev = df_empresa_final[col_tot_prev].sum()
             fila_totales_empresa[col] = ((tot_act - tot_prev) / tot_prev * 100) if tot_prev != 0 else 0
         elif 'Dif. Abs.' in col:
-            ano_actual_str = col.split(' ')[-3]
-            ano_prev_str = col.split(' ')[-1]
+            parts = col.split(' ')
+            ano_actual_str = parts[-3]
+            ano_prev_str = parts[-1]
             col_tot_act = f'Total Empresa {ano_actual_str}'
             col_tot_prev = f'Total Empresa {ano_prev_str}'
             fila_totales_empresa[col] = df_empresa_final[col_tot_act].sum() - df_empresa_final[col_tot_prev].sum()
@@ -209,16 +193,18 @@ if not df_mes_final.empty:
     fila_totales_mes = pd.DataFrame(index=['TOTAL ANUAL'])
     for col in df_mes_final.columns:
         if 'Dif. %' in col:
-            ano_actual_str = col.split(' ')[-3]
-            ano_prev_str = col.split(' ')[-1]
+            parts = col.split(' ')
+            ano_actual_str = parts[-3]
+            ano_prev_str = parts[-1]
             col_tot_act = f'Coste {ano_actual_str}'
             col_tot_prev = f'Coste {ano_prev_str}'
             tot_act = df_mes_final[col_tot_act].sum()
             tot_prev = df_mes_final[col_tot_prev].sum()
             fila_totales_mes[col] = ((tot_act - tot_prev) / tot_prev * 100) if tot_prev != 0 else 0
         elif 'Dif. Abs.' in col:
-            ano_actual_str = col.split(' ')[-3]
-            ano_prev_str = col.split(' ')[-1]
+            parts = col.split(' ')
+            ano_actual_str = parts[-3]
+            ano_prev_str = parts[-1]
             col_tot_act = f'Coste {ano_actual_str}'
             col_tot_prev = f'Coste {ano_prev_str}'
             fila_totales_mes[col] = df_mes_final[col_tot_act].sum() - df_mes_final[col_tot_prev].sum()
