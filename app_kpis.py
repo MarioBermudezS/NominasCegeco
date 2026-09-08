@@ -66,9 +66,9 @@ col3.metric("Devengo Medio", f"{d_medio_tot:,.2f} €", delta=delta_d_medio, del
 
 
 # =========================================================================
-# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Con Variaciones)
+# 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Con Fila de Totales)
 # =========================================================================
-st.subheader("🏢 Comparativa de Costes por Empresa y Año (con Variaciones)")
+st.subheader("🏢 Comparativa de Costes por Empresa y Año (con Totales y Variaciones)")
 
 pivot_empresa_ano = df_filtered.pivot_table(
     index='Empresa', 
@@ -104,6 +104,30 @@ for i, ano in enumerate(anos_seleccionados):
         formatos_empresa[col_diff_abs] = "{:+,.2f} €"
         formatos_empresa[col_diff_pct] = "{:+.2f}%"
 
+# Añadir fila de TOTALES empresa
+if not df_empresa_final.empty:
+    fila_totales_empresa = pd.DataFrame(index=['TOTAL GRUPO'])
+    for col in df_empresa_final.columns:
+        if 'Dif. %' in col:
+            # Recalcular % total global
+            ano_actual_str = col.split(' ')[-3] # Extraer año actual
+            ano_prev_str = col.split(' ')[-1]  # Extraer año previo
+            col_tot_act = f'Total Empresa {ano_actual_str}'
+            col_tot_prev = f'Total Empresa {ano_prev_str}'
+            tot_act = df_empresa_final[col_tot_act].sum()
+            tot_prev = df_empresa_final[col_tot_prev].sum()
+            fila_totales_empresa[col] = ((tot_act - tot_prev) / tot_prev * 100) if tot_prev != 0 else 0
+        elif 'Dif. Abs.' in col:
+            ano_actual_str = col.split(' ')[-3]
+            ano_prev_str = col.split(' ')[-1]
+            col_tot_act = f'Total Empresa {ano_actual_str}'
+            col_tot_prev = f'Total Empresa {ano_prev_str}'
+            fila_totales_empresa[col] = df_empresa_final[col_tot_act].sum() - df_empresa_final[col_tot_prev].sum()
+        else:
+            fila_totales_empresa[col] = df_empresa_final[col].sum()
+            
+    df_empresa_final = pd.concat([df_empresa_final, fila_totales_empresa])
+
 def color_diferencias(val):
     if isinstance(val, (int, float)):
         if val < 0:
@@ -121,9 +145,9 @@ st.dataframe(
 
 
 # =========================================================================
-# 2. EVOLUCIÓN MENSUAL DEL COSTE TOTAL EMPRESA (Con Variaciones)
+# 2. EVOLUCIÓN MENSUAL DEL COSTE TOTAL EMPRESA (Con Fila de Totales)
 # =========================================================================
-st.subheader("📅 Evolución Mensual del Coste Total Empresa (con Variaciones)")
+st.subheader("📅 Evolución Mensual del Coste Total Empresa (con Totales y Variaciones)")
 
 pivot_mes_ano = df_filtered.pivot_table(
     index='MES', 
@@ -150,6 +174,29 @@ for i, ano in enumerate(anos_seleccionados):
         
         formatos_meses[col_diff_abs] = "{:+,.2f} €"
         formatos_meses[col_diff_pct] = "{:+.2f}%"
+
+# Añadir fila de TOTALES mensuales (suma de los 12 meses)
+if not df_mes_final.empty:
+    fila_totales_mes = pd.DataFrame(index=['TOTAL ANUAL'])
+    for col in df_mes_final.columns:
+        if 'Dif. %' in col:
+            ano_actual_str = col.split(' ')[-3]
+            ano_prev_str = col.split(' ')[-1]
+            col_tot_act = f'Coste {ano_actual_str}'
+            col_tot_prev = f'Coste {ano_prev_str}'
+            tot_act = df_mes_final[col_tot_act].sum()
+            tot_prev = df_mes_final[col_tot_prev].sum()
+            fila_totales_mes[col] = ((tot_act - tot_prev) / tot_prev * 100) if tot_prev != 0 else 0
+        elif 'Dif. Abs.' in col:
+            ano_actual_str = col.split(' ')[-3]
+            ano_prev_str = col.split(' ')[-1]
+            col_tot_act = f'Coste {ano_actual_str}'
+            col_tot_prev = f'Coste {ano_prev_str}'
+            fila_totales_mes[col] = df_mes_final[col_tot_act].sum() - df_mes_final[col_tot_prev].sum()
+        else:
+            fila_totales_mes[col] = df_mes_final[col].sum()
+            
+    df_mes_final = pd.concat([df_mes_final, fila_totales_mes])
 
 cols_colorear_mes = [c for c in df_mes_final.columns if 'Dif.' in str(c)]
 st.dataframe(
