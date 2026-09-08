@@ -26,12 +26,21 @@ sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, def
 
 df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)) & (df['MES'].isin(sel_meses))]
 
-# --- MÉTRICAS SUPERIORES ---
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Registros / Nóminas", f"{len(df_filtered):,}")
-col2.metric("Total Seguridad Social", f"{df_filtered['TOTAL SEGURIDAD SOCIAL'].sum():,.2f} €")
-col3.metric("Total Devengos", f"{df_filtered['TOTAL DEVENGO'].sum():,.2f} €")
-col4.metric("Coste Total Empresa", f"{df_filtered['TOTAL EMPRESA'].sum():,.2f} €")
+# --- MÉTRICAS SUPERIORES (RATIOS FINANCIEROS CLAVE) ---
+total_registros = len(df_filtered)
+total_devengos = df_filtered['TOTAL DEVENGO'].sum()
+total_ss = df_filtered['TOTAL SEGURIDAD SOCIAL'].sum()
+total_empresa = df_filtered['TOTAL EMPRESA'].sum()
+
+coste_medio_nomina = (total_empresa / total_registros) if total_registros > 0 else 0
+ratio_carga_social = ((total_ss / total_devengos) * 100) if total_devengos > 0 else 0
+devengo_medio = (total_devengos / total_registros) if total_registros > 0 else 0
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Coste Medio / Nómina", f"{coste_medio_nomina:,.2f} €")
+col2.metric("Ratio Carga Social", f"{ratio_carga_social:,.2f}%")
+col3.metric("Devengo Medio", f"{devengo_medio:,.2f} €")
+
 
 # =========================================================================
 # 1. COMPARATIVA DE COSTES POR EMPRESA Y AÑO (Con Variaciones)
@@ -46,36 +55,22 @@ pivot_empresa_ano = df_filtered.pivot_table(
 ).fillna(0)
 
 anos_actuales = sorted(df_filtered['AÑO'].unique().tolist())
-
-# Construimos dinámicamente las columnas ordenadas incluyendo Diff Absoluta y % si hay 2 o más años
-columnas_ordenadas = []
 df_empresa_final = pd.DataFrame(index=pivot_empresa_ano.index)
 
 for i, ano in enumerate(anos_actuales):
-    # Añadir métricas base del año
     df_empresa_final[(f'Devengos {ano}', '')] = pivot_empresa_ano[('TOTAL DEVENGO', ano)]
     df_empresa_final[(f'Seg. Social {ano}', '')] = pivot_empresa_ano[('TOTAL SEGURIDAD SOCIAL', ano)]
     df_empresa_final[(f'Total Empresa {ano}', '')] = pivot_empresa_ano[('TOTAL EMPRESA', ano)]
     
-    # Si hay un año anterior seleccionado, calculamos diferencias respecto al año previo
     if i > 0:
         ano_prev = anos_actuales[i-1]
-        
-        # Diferencia Coste Empresa Absoluta y Porcentual
         col_diff_abs = f'Dif. Abs. (€) {ano} vs {ano_prev}'
         col_diff_pct = f'Dif. % {ano} vs {ano_prev}'
         
         df_empresa_final[(col_diff_abs, '')] = df_empresa_final[(f'Total Empresa {ano}', '')] - df_empresa_final[(f'Total Empresa {ano_prev}', '')]
         df_empresa_final[(col_diff_pct, '')] = ((df_empresa_final[(f'Total Empresa {ano}', '')] - df_empresa_final[(f'Total Empresa {ano_prev}', '')]) / df_empresa_final[(f'Total Empresa {ano_prev}', '')].replace(0, 1)) * 100
 
-# Formateo personalizado para la tabla de empresas (Euros y Porcentajes)
-def format_empresa_cols(val, col_name):
-    if '%' in str(col_name):
-        return f"{val:+.2f}%"
-    else:
-        return f"{val:,.2f} €"
-
-st.dataframe(df_empresa_final.style.format(lambda v: f"{v:,.2f} €"), use_container_width=True)
+st.dataframe(df_empresa_final.style.format(lambda v: f"{v:,.2f} €" if isinstance(v, (int, float)) and v > 100 else f"{v:,.2f}"), use_container_width=True)
 
 
 # =========================================================================
