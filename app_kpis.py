@@ -29,9 +29,8 @@ df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Registros / Nóminas", f"{len(df_filtered):,}")
 col2.metric("Total Devengos", f"{df_filtered['TOTAL DEVENGO'].sum():,.2f} €")
-col3.metric("Total Seguridad Social", f"{df_filtered['TOTAL SEGURIDAD SOCIAL'].sum():,.2f} €")
-col4.metric("Coste Total Empresa", f"{df_filtered['TOTAL EMPRESA'].sum():,.2f} €")
-
+col3.metric("Coste Total Empresa", f"{df_filtered['TOTAL EMPRESA'].sum():,.2f} €")
+col4.metric("Total Seguridad Social", f"{df_filtered['TOTAL SEGURIDAD SOCIAL'].sum():,.2f} €")
 st.markdown("---")
 
 st.subheader("🏢 Comparativa de Costes por Empresa y Año")
