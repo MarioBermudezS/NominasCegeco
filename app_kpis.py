@@ -15,14 +15,44 @@ def load_data():
 
 df = load_data()
 
-st.sidebar.header("Filtros de Análisis")
 empresas_disponibles = df['Empresa'].unique().tolist()
 anos_disponibles = sorted(df['AÑO'].unique().tolist())
 meses_disponibles = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-sel_empresas = st.sidebar.multiselect("Seleccionar Empresa(s)", empresas_disponibles, default=empresas_disponibles)
-sel_anos = st.sidebar.multiselect("Seleccionar Año(s)", anos_disponibles, default=anos_disponibles[-2:] if len(anos_disponibles)>=2 else anos_disponibles)
-sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, default=meses_disponibles)
+# --- RECUPERAR FILTROS DESDE LA URL (O VALORES POR DEFECTO) ---
+params = st.query_params
+
+# Empresas
+default_empresas = params.get_all("empresa")
+if not default_empresas:
+    default_empresas = empresas_disponibles
+
+# Años
+default_anos_str = params.get_all("ano")
+if default_anos_str:
+    default_anos = [int(a) for a in default_anos_str if int(a) in anos_disponibles]
+else:
+    default_anos = anos_disponibles[-2:] if len(anos_disponibles)>=2 else anos_disponibles
+
+# Meses
+default_meses = params.get_all("mes")
+if not default_meses:
+    default_meses = meses_disponibles
+
+st.sidebar.header("Filtros de Análisis")
+sel_empresas = st.sidebar.multiselect("Seleccionar Empresa(s)", empresas_disponibles, default=default_empresas)
+sel_anos = st.sidebar.multiselect("Seleccionar Año(s)", anos_disponibles, default=default_anos)
+sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, default=default_meses)
+
+# --- GUARDAR FILTROS ACTUALES EN LA URL ---
+st.query_params.clear()
+for e in sel_empresas:
+    st.query_params.add("empresa", e)
+for a in sel_anos:
+    st.query_params.add("ano", str(a))
+for m in sel_meses:
+    st.query_params.add("mes", m)
+
 
 df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)) & (df['MES'].isin(sel_meses))]
 
@@ -104,14 +134,12 @@ for i, ano in enumerate(anos_seleccionados):
         formatos_empresa[col_diff_abs] = "{:+,.2f} €"
         formatos_empresa[col_diff_pct] = "{:+.2f}%"
 
-# Añadir fila de TOTALES empresa
 if not df_empresa_final.empty:
     fila_totales_empresa = pd.DataFrame(index=['TOTAL GRUPO'])
     for col in df_empresa_final.columns:
         if 'Dif. %' in col:
-            # Recalcular % total global
-            ano_actual_str = col.split(' ')[-3] # Extraer año actual
-            ano_prev_str = col.split(' ')[-1]  # Extraer año previo
+            ano_actual_str = col.split(' ')[-3]
+            ano_prev_str = col.split(' ')[-1]
             col_tot_act = f'Total Empresa {ano_actual_str}'
             col_tot_prev = f'Total Empresa {ano_prev_str}'
             tot_act = df_empresa_final[col_tot_act].sum()
@@ -175,7 +203,6 @@ for i, ano in enumerate(anos_seleccionados):
         formatos_meses[col_diff_abs] = "{:+,.2f} €"
         formatos_meses[col_diff_pct] = "{:+.2f}%"
 
-# Añadir fila de TOTALES mensuales (suma de los 12 meses)
 if not df_mes_final.empty:
     fila_totales_mes = pd.DataFrame(index=['TOTAL ANUAL'])
     for col in df_mes_final.columns:
