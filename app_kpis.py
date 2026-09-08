@@ -23,19 +23,25 @@ meses_disponibles = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Jul
 params = st.query_params
 
 # Empresas
-default_empresas = params.get_all("empresa")
+default_empresas = params.get_all("empresa") if hasattr(params, "get_all") else params.get("empresa", empresas_disponibles)
+if isinstance(default_empresas, str):
+    default_empresas = [default_empresas]
 if not default_empresas:
     default_empresas = empresas_disponibles
 
 # Años
-default_anos_str = params.get_all("ano")
-if default_anos_str:
-    default_anos = [int(a) for a in default_anos_str if int(a) in anos_disponibles]
+default_anos_param = params.get_all("ano") if hasattr(params, "get_all") else params.get("ano", [])
+if isinstance(default_anos_param, str):
+    default_anos_param = [default_anos_param]
+if default_anos_param:
+    default_anos = [int(a) for a in default_anos_param if int(a) in anos_disponibles]
 else:
     default_anos = anos_disponibles[-2:] if len(anos_disponibles)>=2 else anos_disponibles
 
 # Meses
-default_meses = params.get_all("mes")
+default_meses = params.get_all("mes") if hasattr(params, "get_all") else params.get("mes", meses_disponibles)
+if isinstance(default_meses, str):
+    default_meses = [default_meses]
 if not default_meses:
     default_meses = meses_disponibles
 
@@ -44,14 +50,10 @@ sel_empresas = st.sidebar.multiselect("Seleccionar Empresa(s)", empresas_disponi
 sel_anos = st.sidebar.multiselect("Seleccionar Año(s)", anos_disponibles, default=default_anos)
 sel_meses = st.sidebar.multiselect("Seleccionar Mes(es)", meses_disponibles, default=default_meses)
 
-# --- GUARDAR FILTROS ACTUALES EN LA URL ---
-st.query_params.clear()
-for e in sel_empresas:
-    st.query_params.add("empresa", e)
-for a in sel_anos:
-    st.query_params.add("ano", str(a))
-for m in sel_meses:
-    st.query_params.add("mes", m)
+# --- GUARDAR FILTROS ACTUALES EN LA URL (Sintaxis moderna de Streamlit) ---
+st.query_params["empresa"] = sel_empresas
+st.query_params["ano"] = [str(a) for a in sel_anos]
+st.query_params["mes"] = sel_meses
 
 
 df_filtered = df[(df['Empresa'].isin(sel_empresas)) & (df['AÑO'].isin(sel_anos)) & (df['MES'].isin(sel_meses))]
